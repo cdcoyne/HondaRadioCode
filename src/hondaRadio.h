@@ -1,3 +1,4 @@
+/* state of what would be displayed on the LCD */
 typedef enum {
   LCD_STATE_UNKNOWN,
   LCD_STATE_INCOMPLETE,
@@ -10,3 +11,8 @@ typedef enum {
   LCD_STATE_ERROR_E,
   LCD_STATE_RUNNING
 }LCD_STATE_T;
+
+/* command headers from radio */
+#define LCD_COMMAND_OUTPUT 0x42
+#define LCD_COMMAND_INPUT 0xC2
+

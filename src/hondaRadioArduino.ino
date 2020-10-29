@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include "hondaRadio.h"
 
-#define PIN_RADIO_OUT   51 /* LCD_DI */
-#define PIN_RADIO_IN 50 /* LCD_DO */
-#define PIN_CLOCK 52 /* LCD_CLK */
-#define PIN_SPI_SELECT_IN 21 /* LCD_CE */
-#define PIN_POWER_SWITCH 22 /* PWD_SW */
+#define PIN_LCD_DI   51 /* MOSI output from radio */
+#define PIN_LCD_DO 50 /* MISO input to radio */
+#define PIN_LCD_CLK 52 /* spi clock */
+#define PIN_LCD_CE 21 /* command select / chip enable */
+#define PIN_PWD_SW 22 /* power switch, active low */
 
-#define PIN_SPI_SELECT_OUT 45
+#define PIN_SPI_SELECT_OUT 53 /* manually toggle CE pin */
 
 #define PIN_DEBUG_YELLOW 24
 #define PIN_DEBUG_GREEN 31
@@ -57,19 +57,19 @@ void setup() {
 
   pinMode(LED_BUILTIN, OUTPUT); /* onboard led */
   digitalWrite(LED_BUILTIN, 0);
-  pinMode(PIN_RADIO_OUT, INPUT);
-  pinMode(PIN_RADIO_IN, OUTPUT);
-  pinMode(PIN_CLOCK, INPUT);
-  pinMode(PIN_SPI_SELECT_IN, INPUT);
+  pinMode(PIN_LCD_DI, INPUT);
+  pinMode(PIN_LCD_DO, OUTPUT);
+  pinMode(PIN_LCD_CLK, INPUT);
+  pinMode(PIN_LCD_CE, INPUT);
   pinMode(PIN_SPI_SELECT_OUT, OUTPUT);
-  pinMode(PIN_POWER_SWITCH, OUTPUT);
+  pinMode(PIN_PWD_SW, OUTPUT);
   pinMode(PIN_DEBUG_YELLOW, OUTPUT);
   pinMode(PIN_DEBUG_GREEN, OUTPUT);
 
   /* turn off power switch */
-  digitalWrite(PIN_POWER_SWITCH, 1);
+  digitalWrite(PIN_PWD_SW, 1);
 
-  attachInterrupt(digitalPinToInterrupt(PIN_SPI_SELECT_IN), ISR_endCommand, FALLING);
+  attachInterrupt(digitalPinToInterrupt(PIN_LCD_CE), ISR_endCommand, FALLING);
 
   SPDR = 0xff;
 
@@ -79,10 +79,6 @@ void setup() {
   // turn on interrupts
   SPCR |= _BV(SPIE);
 }
-
-#define LCD_COMMAND_OUTPUT 0x42
-#define LCD_COMMAND_INPUT 0xC2
-
 
 ISR (SPI_STC_vect)
 {
@@ -268,13 +264,13 @@ void loop() {
       CODEatStart = true;
       Serial.println("powered off, powering on, look for CODE");
 
-      digitalWrite(PIN_POWER_SWITCH, 0);
+      digitalWrite(PIN_PWD_SW, 0);
 
     }
     else if ( incomingCmd == LCD_STATE_CODE_CODE
               && CODEatStart ) {
       /*let go of power button if we were pushing it down */
-      digitalWrite(PIN_POWER_SWITCH, 1);
+      digitalWrite(PIN_PWD_SW, 1);
       if ( seenAlready ) {
         CODEatStart = false;
         /*transmit first button */
