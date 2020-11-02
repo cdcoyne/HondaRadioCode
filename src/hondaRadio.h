@@ -16,3 +16,12 @@ typedef enum {
 #define LCD_COMMAND_OUTPUT 0x42
 #define LCD_COMMAND_INPUT 0xC2
 
+/* recieve buffer length. needs to be longer than a message 
+on 7BK0 radio this is 12 bytes */
+#define BUFFER_SIZE 20
+
+/* number of buttons available to push in codes */
+#define BUTTON_MAX 6
+/* length of code in key presses */
+#define LENGTH_OF_CODE 5
+

@@ -18,12 +18,9 @@
 #define DEBUG_YELLOW_HIGH PORTA |= 0x04
 #define DEBUG_YELLOW_LOW PORTA &= ~0x04
 
-#define BUTTON_MAX 6
-#define LENGTH_OF_CODE 5
 
-uint8_t code[LENGTH_OF_CODE] = {3, 4, 2, 5, 6};
+uint8_t code[LENGTH_OF_CODE] = {5, 4, 2, 5, 4};
 
-#define BUFFER_SIZE 20
 volatile uint8_t inData[BUFFER_SIZE];
 volatile uint8_t inBytePos = 0;
 volatile bool commandComplete;
@@ -71,15 +68,19 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(PIN_LCD_CE), ISR_endCommand, FALLING);
 
+/* initialize spi bus.  
+  lowering the data line prompts the master to send the 
+  "read key press" command instead of the "update display" */
   SPDR = 0xff;
-
-  // turn on SPI in slave mode
+  // enable SPI in slave mode
   SPCR |= _BV(SPE);
-
-  // turn on interrupts
+  // enable interrupts
   SPCR |= _BV(SPIE);
 }
 
+/* SPI ISR
+on the mega2560 the datarate was too fast to exit the interrupt after each byte, so just sit in here and handle the 
+entire thing */
 ISR (SPI_STC_vect)
 {
   if ( inBytePos < BUFFER_SIZE ) {
@@ -182,35 +183,44 @@ LCD_STATE_T commandParse()
   return ret;
 }
 
+/* mimic button press by lowering the SPI data line 
+which tells the master that there is a button pressed down. */
 void press( void ) {
   SPDR = 0x00;
 }
 
+/* increment through possible radio codes placing the 
+result in the 'code' array */
+
 bool incrementCode ( void )
 {
   bool ret = true;
-  int i = 0;
+  int i = LENGTH_OF_CODE-1;
   int carry = 1;
-  while ( carry == 1 && i < 6 ) {
+  while ( ret == true && carry == 1 ) {
     code[i]++;
-    if (code[i] < 7 ) {
+    if (code[i] <= BUTTON_MAX ) {
       carry = 0;
     }
     else {
-      code[i] = 1;
-      i++;
+        code[i] = 1;
+        if ( i > 0 ){
+            i--;
+        }
+        else{
+            ret = false;
+        }
+
     }
   }
 
-  if ( i == 6) {
-    ret = false;
+  if ( ret == true ){
+    Serial.print("next code: ");
+    for ( i = 0; i < LENGTH_OF_CODE; i ++ ) {
+      Serial.print(code[i]);
+    }
+    Serial.println();
   }
-
-  Serial.print("next code: ");
-  for ( i = 0; i < LENGTH_OF_CODE; i ++ ) {
-    Serial.print(code[i]);
-  }
-  Serial.println();
 
   return ret;
 }
