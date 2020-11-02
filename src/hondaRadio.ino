@@ -38,9 +38,14 @@ uint8_t txCmd[][5] = {
 };
 
 
+  /* manipulate the SPI enable line ourself since 
+    the actual Honda hardware toggles the CE line after the first byte
+    which it uses for a command type. If we used it with the 
+    spi peripheral it would miss the first byte. 
+    we still use it since it keeps the data in sync with the 
+    spi clock  */
 void ISR_endCommand( void )
 {
-  /* reset our internal spi so that the bytes are synced up */
   digitalWrite(PIN_SPI_SELECT_OUT, 1);
   digitalWrite(PIN_SPI_SELECT_OUT, 0);
   commandComplete = true;
@@ -80,7 +85,7 @@ void setup() {
 
 /* SPI ISR
 on the mega2560 the datarate was too fast to exit the interrupt after each byte, so just sit in here and handle the 
-entire thing */
+entire thing, even using a loop to send data was too slow in testing */
 ISR (SPI_STC_vect)
 {
   if ( inBytePos < BUFFER_SIZE ) {
