@@ -24,7 +24,6 @@ uint8_t code[LENGTH_OF_CODE] = {5, 4, 2, 5, 4};
 volatile uint8_t inData[BUFFER_SIZE];
 volatile uint8_t inBytePos = 0;
 volatile bool commandComplete;
-volatile bool inputCmd;
 uint8_t currentButton;
 
 uint8_t txCmd[][5] = {
@@ -49,7 +48,6 @@ void ISR_endCommand( void )
   digitalWrite(PIN_SPI_SELECT_OUT, 1);
   digitalWrite(PIN_SPI_SELECT_OUT, 0);
   commandComplete = true;
-  inputCmd = true;
 }
 
 void setup() {
@@ -91,6 +89,7 @@ ISR (SPI_STC_vect)
   if ( inBytePos < BUFFER_SIZE ) {
     inData[inBytePos] = SPDR;
 
+  /* send key press if cpu is expecting it */
     if ( inData[0] == LCD_COMMAND_INPUT ) {
       SPDR = txCmd[code[currentButton]][0];
       while ( (SPSR & 0x80 ) == 0 );
@@ -102,15 +101,8 @@ ISR (SPI_STC_vect)
       while ( (SPSR & 0x80 ) == 0 );
       SPDR = 0xff;
     }
-    /*
-        if ( inputCmd == true ){
-          SPDR = txCmd[code[currentButton]][inBytePos];
 
-          if ( inData[0] == LCD_COMMAND_OUTPUT ){
-            inputCmd = false;
-          }
-        }
-    */
+    /* otherwise command is just for updating LCD, ignore it */
     else {
       SPDR = 0xff;
       inBytePos++;
