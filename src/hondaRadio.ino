@@ -18,7 +18,7 @@
 #define DEBUG_YELLOW_HIGH PORTA |= 0x04
 #define DEBUG_YELLOW_LOW PORTA &= ~0x04
 
-
+/* current code to be attempted, each element is a keypress */
 uint8_t code[LENGTH_OF_CODE] = {5, 4, 2, 5, 4};
 
 volatile uint8_t inData[BUFFER_SIZE];
