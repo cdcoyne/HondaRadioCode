@@ -116,10 +116,12 @@ ISR (SPI_STC_vect)
 
 LCD_STATE_T commandParse()
 {
+  static LCD_STATE_T lastCommand = LCD_STATE_UNKNOWN;
+  LCD_STATE_T thisCommand = LCD_STATE_UNKNOWN;
   LCD_STATE_T ret = LCD_STATE_UNKNOWN;
   static bool poweredOn;
 
-  if ( rxData[0] == LCD_COMMAND_OUTPUT && commandComplete == true ) {
+  if ( rxData[0] == LCD_COMMAND_OUTPUT ) {
 #ifdef LOG_RX_DATA
     uint8_t i;
     for ( i = 0 ; i < rxDataPtr; i ++ ) {
@@ -142,7 +144,7 @@ LCD_STATE_T commandParse()
         Serial.println("RX POWERED_OFF");
 #endif
         poweredOn = false;
-        ret = LCD_STATE_POWERED_OFF;
+        thisCommand = LCD_STATE_POWERED_OFF;
       }
       else if ( rxData[1] == 0x10 ) {
         /* once powered on this matches any command index 2 */
@@ -150,20 +152,20 @@ LCD_STATE_T commandParse()
       }
       else if ( rxData[1] == 0x13 ) {
         /* code was accepted, running screen */
-        ret = LCD_STATE_RUNNING;
+        thisCommand = LCD_STATE_RUNNING;
       }
     }
     else if ( rxData[12] == 0x04 && poweredOn == true ) {
 
       if ( rxData[7] == 0x77 ) {
-        ret = LCD_STATE_CODE_CODE;
+        thisCommand = LCD_STATE_CODE_CODE;
 #ifdef LOG_RX_STATES
         Serial.println("RX CODE");
 #endif
       }
       else if ( rxData[7] == 0x00
                 && rxData[10] == 0x00 ) {
-        ret = LCD_STATE_CODE_C;
+        thisCommand = LCD_STATE_CODE_C;
 #ifdef LOG_RX_STATES
         Serial.println("RX C___");
 #endif
@@ -171,29 +173,45 @@ LCD_STATE_T commandParse()
       else if ( rxData[7] == 0x00
                 && rxData[9] == 0x00
                 && rxData[10] == 0x1c ) {
-        ret = LCD_STATE_CODE_CO;
+        thisCommand = LCD_STATE_CODE_CO;
 #ifdef LOG_RX_STATES
         Serial.println("RX CO__");
 #endif
       }
       else if ( rxData[7] == 0x60 ) {
-        ret = LCD_STATE_CODE_COD;
+        thisCommand = LCD_STATE_CODE_COD;
 #ifdef LOG_RX_STATES       
         Serial.println("RX COD_");
 #endif
       }
-      else if ( rxData[9] == 0x0C
-                && rxData[10] == 0x24 ) {
-        ret = LCD_STATE_ERROR_E;
-      }
-      else {
-        ret = LCD_STATE_ERROR_NUM;
+      else if ( rxData[10] == 0x24 ) {
+        if ( rxData[9] == 0x0C ) {
+          thisCommand = LCD_STATE_ERROR_E;
+        }
+        else {
+          thisCommand = LCD_STATE_ERROR_NUM;
 #ifdef LOG_RX_STATES
-        Serial.println("RX err #");
+          Serial.println("RX err #");
 #endif
+        }
       }
     }
   }
+
+  /* retain last command to reference to make sure the
+  display is stable, pressing a button in the middle
+  of a display update may cause stale dipslay data */
+  if ( thisCommand == lastCommand ){
+    ret = thisCommand;
+  }
+  else if ( thisCommand != LCD_STATE_UNKNOWN ){
+    lastCommand = thisCommand;
+    ret = LCD_STATE_UNKNOWN;
+  }
+  else {
+    ret = LCD_STATE_UNKNOWN;
+  }
+
   return ret;
 }
 
@@ -276,7 +294,6 @@ void ledOutput ( void )
 
 void loop() {
   static bool CODEatStart;
-  static bool seenAlready;
   static bool keepRunning = true;
   static bool printResult = false;
 
@@ -288,9 +305,6 @@ void loop() {
     LCD_STATE_T incomingCmd = commandParse();
     if ( incomingCmd == LCD_STATE_POWERED_OFF ) {
       CODEatStart = true;
-#ifdef LOG_RX_STATES
-      Serial.println("RX Powered off");
-#endif
       digitalWrite(PIN_PWD_SW, 0);
 
     }
@@ -298,60 +312,41 @@ void loop() {
               && CODEatStart ) {
       /*let go of power button if we were pushing it down */
       digitalWrite(PIN_PWD_SW, 1);
-      if ( seenAlready ) {
-        CODEatStart = false;
-        /*transmit first button */
+      CODEatStart = false;
+      /*transmit first button */
 #ifdef LOG_TX_STATES
-        Serial.print("TX ");
-        Serial.println(code[currentButton]);
+      Serial.print("TX ");
+      Serial.println(code[currentButton]);
 #endif
-        press();
-        seenAlready = false;
-      }
-      else {
-        seenAlready = true;
-      }
+      press();
     }
     else if ( incomingCmd == LCD_STATE_CODE_C
               || incomingCmd == LCD_STATE_CODE_CO
               || incomingCmd == LCD_STATE_CODE_COD
               || ( incomingCmd == LCD_STATE_CODE_CODE && CODEatStart == false) ) {
-      if ( seenAlready ) {
-        currentButton++;
+      currentButton++;
 #ifdef LOG_TX_STATES
-        Serial.print("TX ");
-        Serial.println(code[currentButton]);
+      Serial.print("TX ");
+      Serial.println(code[currentButton]);
 #endif
-        press();
-        seenAlready = false;
-      }
-      else {
-        seenAlready = true;
-      }
+      press();
     }
     else if ( incomingCmd == LCD_STATE_ERROR_E ) {
       if ( CODEatStart == false ) {
         CODEatStart = true;
         keepRunning = incrementCode();
-        seenAlready = false;
         currentButton = 0;
       }
     }
     else if ( incomingCmd == LCD_STATE_ERROR_NUM ) {
-      if ( seenAlready == true ) {
-        seenAlready = false;
-        keepRunning = incrementCode();
-        if ( keepRunning ) {
-          currentButton = 0;
+      keepRunning = incrementCode();
+      if ( keepRunning ) {
+        currentButton = 0;
 #ifdef LOG_TX_STATES
-          Serial.print("TX ");
-          Serial.println(code[currentButton]);
+        Serial.print("TX ");
+        Serial.println(code[currentButton]);
 #endif
-          press();
-        }
-      }
-      else {
-        seenAlready = true;
+        press();
       }
     }
     else if ( incomingCmd == LCD_STATE_RUNNING ) {
