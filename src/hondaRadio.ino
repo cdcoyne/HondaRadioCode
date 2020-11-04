@@ -1,6 +1,12 @@
 #include <Arduino.h>
 #include "hondaRadio.h"
 
+/* serial log display states */
+//#define LOG_RX_STATES
+//#define LOG_TX_STATES
+/* serial log incoming data */
+//#define LOG_RX_DATA
+
 #define PIN_LCD_DI   51 /* MOSI output from radio */
 #define PIN_LCD_DO 50 /* MISO input to radio */
 #define PIN_LCD_CLK 52 /* spi clock */
@@ -21,8 +27,8 @@
 /* current code to be attempted, each element is a keypress */
 uint8_t code[LENGTH_OF_CODE] = {5, 4, 2, 5, 4};
 
-volatile uint8_t inData[BUFFER_SIZE];
-volatile uint8_t inBytePos = 0;
+volatile uint8_t rxData[BUFFER_SIZE];
+volatile uint8_t rxDataPtr = 0;
 volatile bool commandComplete;
 uint8_t currentButton;
 
@@ -82,15 +88,16 @@ void setup() {
 }
 
 /* SPI ISR
-on the mega2560 the datarate was too fast to exit the interrupt after each byte, so just sit in here and handle the 
+on the mega2560 the datarate was too fast to exit the interrupt after 
+each byte, so just sit in here and handle the 
 entire thing, even using a loop to send data was too slow in testing */
 ISR (SPI_STC_vect)
 {
-  if ( inBytePos < BUFFER_SIZE ) {
-    inData[inBytePos] = SPDR;
+  if ( rxDataPtr < BUFFER_SIZE ) {
+    rxData[rxDataPtr] = SPDR;
 
   /* send key press if cpu is expecting it */
-    if ( inData[0] == LCD_COMMAND_INPUT ) {
+    if ( rxData[0] == LCD_COMMAND_INPUT ) {
       SPDR = txCmd[code[currentButton]][0];
       while ( (SPSR & 0x80 ) == 0 );
       SPDR = txCmd[code[currentButton]][1];
@@ -105,7 +112,7 @@ ISR (SPI_STC_vect)
     /* otherwise command is just for updating LCD, ignore it */
     else {
       SPDR = 0xff;
-      inBytePos++;
+      rxDataPtr++;
     }
   }
   else {
@@ -122,58 +129,78 @@ LCD_STATE_T commandParse()
   LCD_STATE_T ret = LCD_STATE_UNKNOWN;
   static bool poweredOn;
 
-  if ( inData[0] == LCD_COMMAND_OUTPUT && commandComplete == true ) {
-#ifdef PRINT_COMMANDS
+  if ( rxData[0] == LCD_COMMAND_OUTPUT && commandComplete == true ) {
+#ifdef LOG_RX_DATA
     uint8_t i;
-    for ( i = 0 ; i < inBytePos; i ++ ) {
-      Serial.print(inData[i], HEX);
+    for ( i = 0 ; i < rxDataPtr; i ++ ) {
+      Serial.print(rxData[i], HEX);
       Serial.print(' ');
     }
     Serial.println();
 #endif
 
-    if (inData[12] == 0x02 ) {
-      if ( inData[1] == 0x00 ) {
-        Serial.println("debug: got POWERED_OFF");
+  /* locations and data taken from looking at all the commands
+  and finding the minimal set of unique data to identify what
+  the display would be showing. 
+  The data is to the LCD is sent over several indexed commands 
+  and this just cherry picks some unique locations to determine 
+  what the display state is.
+  */
+    if (rxData[12] == 0x02 ) {
+      if ( rxData[1] == 0x00 ) {
+#ifdef LOG_RX_STATES
+        Serial.println("RX POWERED_OFF");
+#endif
         poweredOn = false;
         ret = LCD_STATE_POWERED_OFF;
       }
-      else if ( inData[1] == 0x10 ) {
+      else if ( rxData[1] == 0x10 ) {
+        /* once powered on this matches any command index 2 */
         poweredOn = true;
       }
-      else if ( inData[1] == 0x13 ) {
+      else if ( rxData[1] == 0x13 ) {
+        /* code was accepted, running screen */
         ret = LCD_STATE_RUNNING;
       }
     }
-    else if ( inData[12] == 0x04 && poweredOn == true ) {
+    else if ( rxData[12] == 0x04 && poweredOn == true ) {
 
-      if ( inData[7] == 0x77 ) {
+      if ( rxData[7] == 0x77 ) {
         ret = LCD_STATE_CODE_CODE;
-        Serial.println("debug: got CODE");
+#ifdef LOG_RX_STATES
+        Serial.println("RX CODE");
+#endif
       }
-      else if ( inData[7] == 0x00
-                && inData[10] == 0x00 ) {
+      else if ( rxData[7] == 0x00
+                && rxData[10] == 0x00 ) {
         ret = LCD_STATE_CODE_C;
-        //Serial.println("debug: got C___");
+#ifdef LOG_RX_STATES
+        Serial.println("RX C___");
+#endif
       }
-      else if ( inData[7] == 0x00
-                && inData[9] == 0x00
-                && inData[10] == 0x1c ) {
+      else if ( rxData[7] == 0x00
+                && rxData[9] == 0x00
+                && rxData[10] == 0x1c ) {
         ret = LCD_STATE_CODE_CO;
-        //Serial.println("debug: got CO__");
+#ifdef LOG_RX_STATES
+        Serial.println("RX CO__");
+#endif
       }
-      else if ( inData[7] == 0x60 ) {
+      else if ( rxData[7] == 0x60 ) {
         ret = LCD_STATE_CODE_COD;
-        //Serial.println("debug: got COD_");
+#ifdef LOG_RX_STATES       
+        Serial.println("RX COD_");
+#endif
       }
-      else if ( inData[9] == 0x0C
-                && inData[10] == 0x24 ) {
+      else if ( rxData[9] == 0x0C
+                && rxData[10] == 0x24 ) {
         ret = LCD_STATE_ERROR_E;
-        Serial.print(".");
       }
       else {
         ret = LCD_STATE_ERROR_NUM;
-        Serial.println("debug: got err #");
+#ifdef LOG_RX_STATES
+        Serial.println("RX err #");
+#endif
       }
     }
   }
@@ -216,14 +243,16 @@ bool incrementCode ( void )
     for ( i = 0; i < LENGTH_OF_CODE; i ++ ) {
       Serial.print(code[i]);
     }
-    Serial.println();
+    Serial.println("");
   }
 
   return ret;
 }
 
+/* blink the onboard led indicating that the code was found 
+code is blinked out with a pause between each button, then 
+a long pause when it repeats */
 #define BLINK_RATE_MS 250
-
 void ledOutput ( void )
 {
   static uint16_t currentNum, currentBlink;
@@ -269,8 +298,9 @@ void loop() {
     LCD_STATE_T incomingCmd = commandParse();
     if ( incomingCmd == LCD_STATE_POWERED_OFF ) {
       CODEatStart = true;
-      Serial.println("powered off, powering on, look for CODE");
-
+#ifdef LOG_RX_STATES
+      Serial.println("RX Powered off");
+#endif
       digitalWrite(PIN_PWD_SW, 0);
 
     }
@@ -281,13 +311,15 @@ void loop() {
       if ( seenAlready ) {
         CODEatStart = false;
         /*transmit first button */
-        Serial.print("trying ");
-        Serial.print(code[currentButton]);
+#ifdef LOG_TX_STATES
+        Serial.print("TX ");
+        Serial.println(code[currentButton]);
+#endif
         press();
         seenAlready = false;
       }
       else {
-        seenAlready = 1;
+        seenAlready = true;
       }
     }
     else if ( incomingCmd == LCD_STATE_CODE_C
@@ -296,7 +328,10 @@ void loop() {
               || ( incomingCmd == LCD_STATE_CODE_CODE && CODEatStart == false) ) {
       if ( seenAlready ) {
         currentButton++;
-        Serial.print(code[currentButton]);
+#ifdef LOG_TX_STATES
+        Serial.print("TX ");
+        Serial.println(code[currentButton]);
+#endif
         press();
         seenAlready = false;
       }
@@ -318,8 +353,10 @@ void loop() {
         keepRunning = incrementCode();
         if ( keepRunning ) {
           currentButton = 0;
-          Serial.println();
-          Serial.print(code[currentButton]);
+#ifdef LOG_TX_STATES
+          Serial.print("TX ");
+          Serial.println(code[currentButton]);
+#endif
           press();
         }
       }
@@ -332,7 +369,7 @@ void loop() {
       printResult = true;
       Serial.println("found Code");
     }
-    inBytePos = 0;
+    rxDataPtr = 0;
     commandComplete = false;
   }
 
