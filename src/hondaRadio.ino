@@ -15,14 +15,6 @@
 
 #define PIN_SPI_SELECT_OUT 53 /* manually toggle CE pin */
 
-#define PIN_DEBUG_YELLOW 24
-#define PIN_DEBUG_GREEN 31
-
-#define DEBUG_GREEN_HIGH PORTC |= 0x40
-#define DEBUG_GREEN_LOW PORTC &= ~0x40
-
-#define DEBUG_YELLOW_HIGH PORTA |= 0x04
-#define DEBUG_YELLOW_LOW PORTA &= ~0x04
 
 /* current code to be attempted, each element is a keypress */
 uint8_t code[LENGTH_OF_CODE] = {5, 4, 2, 5, 4};
@@ -69,8 +61,6 @@ void setup() {
   pinMode(PIN_LCD_CE, INPUT);
   pinMode(PIN_SPI_SELECT_OUT, OUTPUT);
   pinMode(PIN_PWD_SW, OUTPUT);
-  pinMode(PIN_DEBUG_YELLOW, OUTPUT);
-  pinMode(PIN_DEBUG_GREEN, OUTPUT);
 
   /* turn off power switch */
   digitalWrite(PIN_PWD_SW, 1);
