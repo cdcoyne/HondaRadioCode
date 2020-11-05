@@ -25,3 +25,6 @@ on 7BK0 radio this is 12 bytes */
 /* length of code in key presses */
 #define LENGTH_OF_CODE 5
 
+/* speed of blinking feedback led */
+#define LED_BLINK_RATE_MS 250
+

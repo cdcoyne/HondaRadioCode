@@ -18,11 +18,11 @@
 
 /* current code to be attempted, each element is a keypress */
 uint8_t code[LENGTH_OF_CODE] = {5, 4, 2, 5, 4};
+uint8_t currentButton;
 
 volatile uint8_t rxData[BUFFER_SIZE];
 volatile uint8_t rxDataPtr = 0;
 volatile bool commandComplete;
-uint8_t currentButton;
 
 uint8_t txCmd[][5] = {
   { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },/* fake data to put button 1 at offset 1 */
@@ -217,7 +217,7 @@ LCD_STATE_T commandParse()
 
 /* mimic button press by lowering the SPI data line 
 which tells the master that there is a button pressed down. */
-void press( void ) {
+void pressButton( void ) {
   SPDR = 0x00;
 }
 
@@ -260,7 +260,6 @@ bool incrementCode ( void )
 /* blink the onboard led indicating that the code was found 
 code is blinked out with a pause between each button, then 
 a long pause when it repeats */
-#define BLINK_RATE_MS 250
 void ledOutput ( void )
 {
   static uint16_t currentNum, currentBlink;
@@ -273,14 +272,14 @@ void ledOutput ( void )
       currentNum++;
       if ( currentNum == LENGTH_OF_CODE ) {
         currentNum = 0;
-        timeToTransition = millis() + ( BLINK_RATE_MS * 6);
+        timeToTransition = millis() + ( LED_BLINK_RATE_MS * 6);
       }
       else {
-        timeToTransition = millis() + ( BLINK_RATE_MS * 3 );
+        timeToTransition = millis() + ( LED_BLINK_RATE_MS * 3 );
       }
     }
     else {
-      timeToTransition = millis() + BLINK_RATE_MS;
+      timeToTransition = millis() + LED_BLINK_RATE_MS;
     }
 
     if ( currentBlink & 1 ) {
@@ -294,14 +293,14 @@ void ledOutput ( void )
 
 void loop() {
   static bool CODEatStart;
-  static bool keepRunning = true;
-  static bool printResult = false;
+  static bool running = true;
 
-  if ( printResult == true ) {
+  if ( running == false ) {
     ledOutput();
+    /* turn off spi when complete */
+    SPCR = 0x00;
   }
-
-  if ( commandComplete == true && keepRunning == true ) {
+  else if ( commandComplete == true ) {
     LCD_STATE_T incomingCmd = commandParse();
     if ( incomingCmd == LCD_STATE_POWERED_OFF ) {
       CODEatStart = true;
@@ -318,7 +317,7 @@ void loop() {
       Serial.print("TX ");
       Serial.println(code[currentButton]);
 #endif
-      press();
+      pressButton();
     }
     else if ( incomingCmd == LCD_STATE_CODE_C
               || incomingCmd == LCD_STATE_CODE_CO
@@ -329,37 +328,33 @@ void loop() {
       Serial.print("TX ");
       Serial.println(code[currentButton]);
 #endif
-      press();
+      pressButton();
     }
     else if ( incomingCmd == LCD_STATE_ERROR_E ) {
       if ( CODEatStart == false ) {
         CODEatStart = true;
-        keepRunning = incrementCode();
+        running = incrementCode();
         currentButton = 0;
       }
     }
     else if ( incomingCmd == LCD_STATE_ERROR_NUM ) {
-      keepRunning = incrementCode();
-      if ( keepRunning ) {
+      running = incrementCode();
+      if ( running ) {
         currentButton = 0;
 #ifdef LOG_TX_STATES
         Serial.print("TX ");
         Serial.println(code[currentButton]);
 #endif
-        press();
+        pressButton();
       }
     }
     else if ( incomingCmd == LCD_STATE_RUNNING ) {
-      keepRunning = false;
-      printResult = true;
+      running = false;
       Serial.println("found Code");
     }
     rxDataPtr = 0;
     commandComplete = false;
   }
 
-  if ( keepRunning == false) {
-    SPCR = 0x00;
-  }
 }
 
