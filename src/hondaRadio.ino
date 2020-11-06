@@ -114,7 +114,7 @@ ISR (SPI_STC_vect)
 
 
 
-LCD_STATE_T commandParse()
+LCD_STATE_T getLCDCommand()
 {
   static LCD_STATE_T lastCommand = LCD_STATE_UNKNOWN;
   LCD_STATE_T thisCommand = LCD_STATE_UNKNOWN;
@@ -262,14 +262,15 @@ code is blinked out with a pause between each button, then
 a long pause when it repeats */
 void ledOutput ( void )
 {
-  static uint16_t currentNum, currentBlink;
-  static unsigned long timeToTransition;
+  static uint16_t currentNum = 0, currentBlink = 0;
+  static unsigned long timeToTransition = 0;
 
   if (millis() > timeToTransition ) {
     currentBlink++;
     if ( currentBlink == (code[currentNum] * 2) ) {
       currentBlink = 0;
       currentNum++;
+      /* reset sequence, long pause */
       if ( currentNum == LENGTH_OF_CODE ) {
         currentNum = 0;
         timeToTransition = millis() + ( LED_BLINK_RATE_MS * 6);
@@ -282,12 +283,7 @@ void ledOutput ( void )
       timeToTransition = millis() + LED_BLINK_RATE_MS;
     }
 
-    if ( currentBlink & 1 ) {
-      PORTB |= 0x80;
-    }
-    else {
-      PORTB &= ~0x80;
-    }
+    digitalWrite(LED_BUILTIN,currentBlink & 1);
   }
 }
 
@@ -301,7 +297,7 @@ void loop() {
     SPCR = 0x00;
   }
   else if ( commandComplete == true ) {
-    LCD_STATE_T incomingCmd = commandParse();
+    LCD_STATE_T incomingCmd = getLCDCommand();
     if ( incomingCmd == LCD_STATE_POWERED_OFF ) {
       CODEatStart = true;
       digitalWrite(PIN_PWD_SW, 0);
