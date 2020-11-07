@@ -28,3 +28,13 @@ on 7BK0 radio this is 12 bytes */
 /* speed of blinking feedback led */
 #define LED_BLINK_RATE_MS 250
 
+/* pin defines */
+#define PIN_LCD_DI   51 /* MOSI output from radio */
+#define PIN_LCD_DO 50 /* MISO input to radio */
+#define PIN_LCD_CLK 52 /* spi clock */
+#define PIN_LCD_CE 21 /* command select / chip enable */
+#define PIN_PWD_SW 22 /* power switch, active low */
+
+#define PIN_SPI_CE_INTERNAL 53 /* manually toggle CE pin */
+
+#define PIN_LED_FEEDBACK LED_BUILTIN
