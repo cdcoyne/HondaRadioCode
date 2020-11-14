@@ -17,5 +17,10 @@ The serial connections are labeled on the silkscreen as well as the ground and p
 
 ## Protocol
 While the SPI peripheral on the Arduino can be used, there are 2 main differences that require some extra logic.
-### CE signal 
-The CE signal which normally encompases an entire block of data is used to separate the command type from the data. 
+### CE Signal 
+The CE signal which normally encompases an entire block of data is used to separate the command type from the data. In the screenshot below, the first byte from the radio is 0x42 which indicates that the following data will be directed to the LCD. 
+![Output Command 7BK0](./cmd_output.png)
+
+### MISO Signal
+As well as being the input to the radio serial interface the MISO signal also acts as a flag to let the radio know that a button is pushed down. Normally the input is high, but the display can request a read command be sent by lowering its data line and wait for a 0xC2 command byte. If 0xC2 is seen then the display then sends its button status on its data line. The screenshot below shows a 0xC2 command being sent.
+![Input Command 7BK0](./cmd_input.png)
