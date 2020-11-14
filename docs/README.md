@@ -22,5 +22,5 @@ The CE signal which normally encompases an entire block of data is used to separ
 ![Output Command 7BK0](./cmd_output.png)
 
 ### MISO Signal
-As well as being the input to the radio serial interface the MISO signal also acts as a flag to let the radio know that a button is pushed down. Normally the input is high, but the display can request a read command be sent by lowering its data line and wait for a 0xC2 command byte. If 0xC2 is seen then the display then sends its button status on its data line. The screenshot below shows a 0xC2 command being sent.
+As well as being the input to the radio serial interface, the MISO signal also acts as a flag to let the radio know that a button is pushed down. Normally the input is high, but the display can request a read command be sent by lowering its data line and wait for a 0xC2 command byte. If 0xC2 is seen then the display then sends its button status on its data line. The screenshot below shows a 0xC2 command being sent.
 ![Input Command 7BK0](./cmd_input.png)
