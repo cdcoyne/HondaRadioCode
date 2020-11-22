@@ -9,7 +9,7 @@
 
 
 /* current code to be attempted, each element is a keypress */
-uint8_t code[LENGTH_OF_CODE] = {5, 4, 2, 5, 4};
+uint8_t code[LENGTH_OF_CODE] = {1, 1, 1, 1, 1};
 uint8_t currentButton;
 
 volatile uint8_t rxData[BUFFER_SIZE];
