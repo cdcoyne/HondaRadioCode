@@ -1,3 +1,7 @@
+/* hondaRadio.h
+various constants and pin defines 
+*/
+
 /* state of what would be displayed on the LCD */
 typedef enum {
   LCD_STATE_UNKNOWN,

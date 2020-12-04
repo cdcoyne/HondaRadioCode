@@ -1,3 +1,24 @@
+/* Honda Radio Code finder */
+/* mimics pushing the buttons on the face of a Honda Radio to try 
+and find the radio code. Currently only works on 03-07 Honda Accords, 
+and among those only the 7BK0 version radio.
+
+Hardware connections vary in position from radio to radio, but you need 
+the following connections as noted on the silkscreen of the radio PCB
+LCD_DI
+LCD_DO
+LCD_CLK
+LCD_CE
+PWD_SW
+and a GND
+
+refer to the .h file for the Arduino pin mappings. They can be changed,
+but the SPI peripheral needs to be used.
+
+Usage is to connect the interface, power on the Arduino, power on the Radio
+and wait quite a while. Eventually the code will be blinked out on an LED */
+
+
 #include <Arduino.h>
 #include "hondaRadio.h"
 
@@ -18,7 +39,7 @@ volatile bool commandComplete;
 
 /* output commands to mimic button presses */
 uint8_t txCmd[][5] = {
-  { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },/* fake data to put button 1 at offset 1 */
+  { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },/* fake data to put button 1 at index 1 */
   { 0x90, 0x00, 0x00, 0x00, 0x00 },/* press 1 */
   { 0x88, 0x00, 0x00, 0x00, 0x00 },/* press 2 */
   { 0x84, 0x00, 0x00, 0x00, 0x00 },/* press 3 */
